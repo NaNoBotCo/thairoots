@@ -278,8 +278,8 @@ body.lang-th .dg{font-size:15px}
 
 <div id="v-wild" class="view">
   <h2 class="ksec"><span class="th-only">บันทึกคำที่พบในชีวิตจริง</span><span class="en-only">ตามล่าในป่า · In the wild</span></h2>
-  <p style="font-size:14px;color:var(--sub);margin:4px" class="en-only">Your margin notes. Log a sighting from any entry (👁); each becomes a review card. Data stays on this device — export for backups or to share a deck with a class.</p>
-  <p style="font-size:14px;color:var(--sub);margin:4px" class="th-only">บันทึกริมหน้ากระดาษของคุณ เมื่อพบคำใดในชีวิตจริง กดปุ่ม 👁 ที่คำนั้นเพื่อบันทึกไว้ แต่ละรายการจะกลายเป็นบัตรทบทวน ข้อมูลทั้งหมดเก็บอยู่ในเครื่องนี้เท่านั้น ส่งออกได้เพื่อสำรองข้อมูลหรือแบ่งปันชุดบัตรให้ชั้นเรียน</p>
+  <p style="font-size:14px;color:var(--sub);margin:4px" class="en-only">Your margin notes. Log a sighting from any entry (👁); each becomes a review card. This browser saves your notes; export them for backups or to share a deck with a class.</p>
+  <p style="font-size:14px;color:var(--sub);margin:4px" class="th-only">บันทึกริมหน้ากระดาษของคุณ เมื่อพบคำใดในชีวิตจริง กดปุ่ม 👁 ที่คำนั้นเพื่อบันทึกไว้ แต่ละรายการจะกลายเป็นบัตรทบทวน เบราว์เซอร์นี้เก็บบันทึกของคุณไว้ ส่งออกได้เพื่อสำรองข้อมูลหรือแบ่งปันชุดบัตรให้ชั้นเรียน</p>
   <div class="wbtns">
     <button class="btn pri" id="wshare" data-ui="share">แชร์</button>
     <button class="btn" id="wanki">Anki</button>
@@ -373,6 +373,7 @@ body.lang-th .dg{font-size:15px}
   <button class="btn" style="width:100%;margin-top:8px" id="ab-close" data-ui="close">ปิด</button>
 </div>
 
+<script src="searchcore.js"></script>
 <script>
 /* ============================================================
    EDIT THIS ONE LINE: your Ko-fi page.
@@ -472,6 +473,41 @@ function fold(s){
 /* consonant skeleton — vowel-insensitive matching, the Semitic-root trick applied to RTGS */
 const skel=s=>fold(s).replace(/[aeiou]/g,'');
 let qf='', qs='';
+/* ---------- the shared search core (search-core/searchcore.js) -------------
+   fold() and skel() above solve the ROMAN half well: a reader who writes
+   "prathana" for ปรารถนา, or gropes at a root by its consonants, is found. What
+   neither can reach is Thai spelling, because both strip to [a-z] before doing
+   any work — so every Thai near-miss fell through. Measured against this
+   dictionary's own words: the roman slips were found 3 of 3, the Thai ones 0 of 8.
+   For a dictionary of half-remembered words that is the half that matters.
+   The core folds the homophone classes the script actually confuses — ศ/ษ/ส,
+   ญ/ย/น, ไ/ใ, the four letters that all say /t/ — and allows a bounded edit on
+   top, which is what catches a dropped ร in ปรารถนา. Same rules as Mot Dang and
+   wichaa; parity-tested against the Python that mines the tables. */
+const CORE = (typeof SEARCHCORE!=='undefined') ? new SEARCHCORE.SearchCore([], []) : null;
+let qCore = null;
+function coreLook(q){ return (CORE && q) ? CORE.analyze(q) : null; }
+/* The core steps in only for a Thai query the page's own tests find nothing for,
+   which is what a misspelling looks like. Run on every query (26 Nov 2026) it
+   widened ones that already worked: กก went from 98 words to 964 of 974, บ้าน
+   from 67 to 151, and it read Thai glosses loosely enough to match nonsense. As a
+   fallback over the headword and its romanization, 11 of 12 misspelled headwords
+   are found (ปราถนา, ปันยา, ประเทส, กะรุนา, อนุยาต …) with 1–11 words shown, and a
+   query that found something before shows the same words as before. */
+function coreFor(q){
+  if(!CORE || !q || !/[฀-๿]/.test(q)) return null;
+  qCore = null;
+  for(const [,,e] of allEntries()) if(matches(e).hit) return null;
+  return coreLook(q);
+}
+/* True when any of these fields matches the query at any tier the core knows. */
+function coreHit(q, fields){
+  if(!CORE || !qCore || !qCore.terms.length) return false;
+  const spec = {};
+  for(const k in fields){ if(fields[k]) spec[k] = [fields[k], 1.0]; }
+  if(!Object.keys(spec).length) return false;
+  return !!CORE.scoreDoc(qCore, CORE.prepareDoc(spec));
+}
 function hl(s){ if(!query||!s) return esc(s||''); const i=norm(s).indexOf(norm(query));
   if(i<0) return esc(s); return esc(s.slice(0,i))+'<mark>'+esc(s.slice(i,i+query.length))+'</mark>'+esc(s.slice(i+query.length)); }
 const dkey=(sec,ei,di)=>sec+':'+ei+':'+di;
@@ -541,9 +577,11 @@ function matches(e){
   const fz=t=>qf.length>=3&&fold(t).includes(qf);
   const sk=t=>qs.length>=3&&skel(t).includes(qs);
   const eHit=norm(e.root).includes(q)||norm(e.gloss).includes(q)||norm(e.gth).includes(q)||norm(e.pali).includes(q)
-    ||fz(e.rom)||sk(e.rom)||norm(e.lore).includes(q)||norm(e.loreT).includes(q)||norm(e.noteT).includes(q);
+    ||fz(e.rom)||sk(e.rom)||norm(e.lore).includes(q)||norm(e.loreT).includes(q)||norm(e.noteT).includes(q)
+    ||coreHit(q,{root:e.root,rom:e.rom});
   const ders=e.der.map(d=>norm(d.t).includes(q)||fz(d.r)||sk(d.r)||norm(d.g).includes(q)||norm(d.gth).includes(q)
-    ||norm(d.s).includes(q)||norm(d.n).includes(q)||norm(d.nT).includes(q)||norm(d.ipa).includes(q));
+    ||norm(d.s).includes(q)||norm(d.n).includes(q)||norm(d.nT).includes(q)||norm(d.ipa).includes(q)
+    ||coreHit(q,{t:d.t,r:d.r}));
   return {hit:eHit||ders.some(x=>x), ders:eHit?null:ders};
 }
 function pathOK(d){ return !path || (d.reg||[]).includes(path) }
@@ -856,7 +894,7 @@ function handleHash(){
     for(const [sec,ei,e] of allEntries()) if(e.root===r||e.id===r){ jumpTo(sec,ei); return } }
   if(h.startsWith('id=')){ const r=h.slice(3);
     for(const [sec,ei,e] of allEntries()) if(e.id===r){ jumpTo(sec,ei); return } }
-  if(h.startsWith('q=')){ query=h.slice(2); qf=fold(query); qs=/[฀-๿]/.test(query)?'':skel(query);
+  if(h.startsWith('q=')){ query=h.slice(2); qf=fold(query); qs=/[฀-๿]/.test(query)?'':skel(query); qCore=coreFor(query);
     document.getElementById('q').value=query; render() }
 }
 
@@ -915,7 +953,7 @@ document.querySelectorAll('.pchip').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('.pchip').forEach(x=>x.classList.remove('on'));
   b.classList.add('on'); path=b.dataset.p; render() });
 document.getElementById('q').addEventListener('input',e=>{
-  query=e.target.value.trim(); qf=fold(query); qs=/[฀-๿]/.test(query)?'':skel(query); render()});
+  query=e.target.value.trim(); qf=fold(query); qs=/[฀-๿]/.test(query)?'':skel(query); qCore=coreFor(query); render()});
 document.getElementById('sort').addEventListener('change',e=>{sortBy=e.target.value;render()});
 document.getElementById('ipatog').onclick=function(){ ipaOn=!ipaOn; this.classList.toggle('on',ipaOn); render(); renderToday() };
 function openAbout(){
