@@ -1,6 +1,10 @@
 # thairoots
 
 
+## Data
+
+On Hugging Face: [NaNoBotCo/thai-roots](https://huggingface.co/datasets/NaNoBotCo/thai-roots), the dictionary and 65,534 Chiang Mai and Chiang Rai place names matched to its roots (CC BY 4.0), and [NaNoBotCo/thai-roots-wiktionary](https://huggingface.co/datasets/NaNoBotCo/thai-roots-wiktionary), the Thai Wiktionary layer (CC BY-SA 3.0).
+
 ## Licence
 
 Records, prose and pages: CC BY 4.0. Code: MIT. Attribution is the only

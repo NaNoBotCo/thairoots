@@ -8,6 +8,8 @@
 - [Privacy](https://nanobotco.github.io/thairoots/privacy-policy.html)
 - [Source](https://github.com/NaNoBotCo/thairoots)
 - [How to cite this](https://nanobotco.github.io/thairoots/CITATION.cff)
+- [Dataset: the dictionary and its join to 65,534 Chiang Mai and Chiang Rai place names, CC BY 4.0](https://huggingface.co/datasets/NaNoBotCo/thai-roots)
+- [Dataset: the Thai Wiktionary layer, CC BY-SA 3.0](https://huggingface.co/datasets/NaNoBotCo/thai-roots-wiktionary)
 
 # — roster of sibling sites, generated from data/fleet.json —
 ## Elsewhere from the same publisher
